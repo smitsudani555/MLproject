@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import dill
 from sklearn.metrics import r2_score
+from sklearn.model_selection import GridSearchCV
+from src.logger import logging
 
 from src.exception import CustomException
 
@@ -37,7 +39,7 @@ def save_object(file_path, obj):
 #             report[list(model.keys())[i]]=test_model_score
             
 #         return report
-def evaluate_model(x_train, y_train, x_test, y_test, models):
+def evaluate_model(x_train, y_train, x_test, y_test, models, param):
     """
     Evaluates multiple models and returns their test r2 scores.
     """
@@ -45,7 +47,17 @@ def evaluate_model(x_train, y_train, x_test, y_test, models):
         report = {}
 
         # Loop through the models dictionary
-        for name, model in models.items():  # Use .items() to get both the key (name) and the value (model object)
+        for model_name, model in models.items():
+            # Get hyperparameters for the model
+            para = param.get(model_name, {})
+
+            if para:  # Perform GridSearchCV only if parameters are provided
+                gs = GridSearchCV(estimator=model, param_grid=para, cv=3, scoring='r2', verbose=2)
+                gs.fit(x_train, y_train)
+
+                # Update model with best parameters
+                model = gs.best_estimator_
+
             # Train the model
             model.fit(x_train, y_train)
 
@@ -58,13 +70,10 @@ def evaluate_model(x_train, y_train, x_test, y_test, models):
             test_model_score = r2_score(y_test, y_test_pred)
 
             # Save the test model score to the report dictionary
-            report[name] = test_model_score
+            report[model_name] = test_model_score
 
         return report
 
     except Exception as e:
         raise CustomException(e, sys)
 
-
-    except Exception as e:
-        raise CustomException(e,sys)
